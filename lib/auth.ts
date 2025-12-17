@@ -115,3 +115,36 @@ export async function createPasswordForUser(password: string) {
     return { success: false, error: message };
   }
 }
+
+export async function checkUserHasPassword(email: string): Promise<{ success: boolean; hasPassword?: boolean; error?: string }> {
+  try {
+    const auth = getAuth();
+    // Check Firebase Auth methods
+    const { fetchSignInMethodsForEmail } = await import('firebase/auth');
+    const methods = await fetchSignInMethodsForEmail(auth, email);
+    const hasPassword = methods.includes('password');
+    return { success: true, hasPassword };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to check password status";
+    return { success: false, error: message };
+  }
+}
+
+export async function createPasswordForApprovedMember(email: string, password: string) {
+  try {
+    const auth = getAuth();
+    const { createUserWithEmailAndPassword } = await import('firebase/auth');
+    
+    // Create the user account with email and password
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    
+    return { success: true, user: result.user };
+  } catch (error: any) {
+    // If user already exists, try to sign them in
+    if (error.code === 'auth/email-already-in-use') {
+      return await signInWithPassword(email, password);
+    }
+    const message = error instanceof Error ? error.message : "Failed to create account";
+    return { success: false, error: message };
+  }
+}

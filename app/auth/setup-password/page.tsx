@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { serif, sans } from '@/lib/fonts';
 import { verifyPasswordlessLink, createPasswordForUser } from '@/lib/auth';
 import { trackPageView } from '@/lib/analytics';
 
-export default function SetupPasswordPage() {
+function SetupPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -89,6 +89,14 @@ export default function SetupPasswordPage() {
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to set password');
+      }
+
+      // Mark password as set in profile
+      const { getCurrentUser } = await import('@/lib/auth');
+      const { markPasswordSet } = await import('@/lib/db');
+      const user = await getCurrentUser();
+      if (user) {
+        await markPasswordSet(user.uid);
       }
 
       setSuccess(true);
@@ -239,5 +247,23 @@ export default function SetupPasswordPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function SetupPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F0EFEA] flex items-center justify-center p-6">
+        <motion.div
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className={`${serif.className} text-2xl text-[#1A1A1A]`}
+        >
+          Loading...
+        </motion.div>
+      </div>
+    }>
+      <SetupPasswordContent />
+    </Suspense>
   );
 }

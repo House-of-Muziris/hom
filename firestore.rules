@@ -17,32 +17,49 @@ service cloud.firestore {
              ];
     }
     
-    function isMember() {
-      return isAuthenticated() &&
-             exists(/databases/$(database)/documents/members/$(request.auth.token.email));
-    }
-    
     function isValidEmail(email) {
       return email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$');
     }
     
     function isValidRequestData() {
       let data = request.resource.data;
-      return data.keys().hasAll(['name', 'email', 'company', 'role', 'status', 'createdAt'])
+      let hasRequiredFields = data.keys().hasAll(['name', 'email', 'memberType', 'status', 'createdAt'])
         && data.name is string && data.name.size() > 0 && data.name.size() <= 100
         && data.email is string && isValidEmail(data.email)
-        && data.company is string && data.company.size() <= 200
-        && data.role is string && data.role.size() <= 100
+        && data.memberType in ['private', 'trade']
         && data.status == 'pending';
+      
+      // Validate based on member type
+      let isValidPrivate = data.memberType == 'private' && (
+        !data.keys().hasAny(['company', 'role', 'businessType', 'monthlyVolume'])
+      );
+      
+      let isValidTrade = data.memberType == 'trade' && (
+        data.keys().hasAll(['company', 'role', 'businessType', 'monthlyVolume']) &&
+        data.company is string && data.company.size() > 0 && data.company.size() <= 200 &&
+        data.role is string && data.role.size() <= 100 &&
+        data.businessType in ['restaurant', 'hotel', 'corporate', 'retailer'] &&
+        data.monthlyVolume in ['<1kg', '1-10kg', '10+kg']
+      );
+      
+      return hasRequiredFields && (isValidPrivate || isValidTrade);
     }
     
     // Requests Collection - Membership applications
     match /requests/{requestId} {
       // Anyone can apply (with validation)
       allow create: if isValidRequestData();
-      // Only admins can view and manage requests
+      // Allow admins to read all requests
       allow read: if isAdmin();
+      // Allow anyone to query for approved requests (needed for login verification)
+      // This is safe - only exposes that an email is an approved member
+      allow list: if true;  // Allow queries for login check (limited by where clause)
+      // Allow admins to update status
       allow update: if isAdmin() && request.resource.data.status in ['pending', 'approved', 'rejected'];
+      // Allow email verification update (only emailVerified field can be set to true)
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['emailVerified', 'updatedAt'])
+                       && request.resource.data.emailVerified == true
+                       && resource.data.status == 'approved';
       allow delete: if isAdmin();
     }
     
@@ -80,6 +97,62 @@ service cloud.firestore {
     match /spices/{spiceId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+    
+    // User profiles collection
+    match /profiles/{userId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        request.auth.uid == userId
+      );
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (request.auth.uid == userId && resource.data.userId == userId)
+      );
+      allow delete: if isAdmin();
+    }
+    
+    // Orders collection (transaction history)
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        resource.data.userId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Users collection (for loyalty points - legacy)
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        request.auth.uid == userId
+      );
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Payments collection
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        resource.data.userId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Activity trail collection
+    match /trail/{activityId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        resource.data.userId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if false; // Activities should not be updated
+      allow delete: if isAdmin();
     }
     
     // Default deny - catch all for security

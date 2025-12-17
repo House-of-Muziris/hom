@@ -56,7 +56,7 @@ function VerifyContent() {
       }
 
       setStatus("success");
-      setTimeout(() => router.push("/member"), 1500);
+      setTimeout(() => router.push("/dashboard"), 1500);
     } else {
       setStatus("error");
       setError(result.error || "Verification failed");

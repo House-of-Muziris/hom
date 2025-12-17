@@ -1,38 +1,37 @@
 'use server';
 
-import { getAuth } from '@/lib/firebase';
-import { sendSignInLinkToEmail } from 'firebase/auth';
-
 /**
- * Creates a Firebase user account and sends a password setup email
+ * Sends approval email with verification link to member
  * This is called when an admin approves a member
  */
-export async function createUserAndSendSetupEmail(email: string, name: string) {
+export async function createUserAndSendSetupEmail(email: string, name: string, verificationToken: string) {
   try {
-    const normalizedEmail = email.toLowerCase().trim();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://houseofmuziris.com';
+    console.log('=== SENDING APPROVAL EMAIL ===');
+    console.log('Email:', email);
+    console.log('Name:', name);
+    console.log('Token:', verificationToken);
     
-    // Generate sign-in link for password setup
-    const auth = getAuth();
-    const actionCodeSettings = {
-      url: `${siteUrl}/auth/setup-password?email=${encodeURIComponent(normalizedEmail)}`,
-      handleCodeInApp: true,
-    };
+    const normalizedEmail = email.toLowerCase().trim();
 
-    // Send the email with sign-in link
-    await sendSignInLinkToEmail(auth, normalizedEmail, actionCodeSettings);
-
-    // Send custom welcome email via Resend
+    // Send approval email with verification link via Resend
     const { sendMembershipApprovalWithSetup } = await import('@/lib/resend-emails');
-    const setupLink = actionCodeSettings.url;
-    await sendMembershipApprovalWithSetup(normalizedEmail, name, setupLink);
+    const result = await sendMembershipApprovalWithSetup(normalizedEmail, name, verificationToken);
+    
+    console.log('Email send result:', result);
 
+    if (!result.success) {
+      const errorMessage = typeof result.error === 'string' ? result.error : 'Failed to send email';
+      throw new Error(errorMessage);
+    }
+
+    console.log('=== APPROVAL EMAIL SENT SUCCESSFULLY ===');
     return { success: true };
   } catch (error: any) {
-    console.error('Create user error:', error);
+    console.error('=== SEND APPROVAL EMAIL ERROR ===');
+    console.error('Error details:', error);
     return { 
       success: false, 
-      error: error.message || 'Failed to create user and send setup email' 
+      error: error.message || 'Failed to send approval email' 
     };
   }
 }

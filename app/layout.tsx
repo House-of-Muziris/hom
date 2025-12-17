@@ -17,6 +17,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${serif.variable} ${sans.variable}`}>
+      <head>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+      </head>
       <body className="antialiased bg-[#F0EFEA] text-[#1A1A1A] selection:bg-[#C5A059]/30">
         <SmoothScroll>
           {children}

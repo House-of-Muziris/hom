@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { serif, sans } from "@/lib/fonts";
-import { sendPasswordlessEmail, getCurrentUser, signOut } from "@/lib/auth";
+import { getCurrentUser, signOut } from "@/lib/auth";
 import { Request, getRequestsByStatus, approveRequest, rejectRequest } from "@/lib/db";
 import { User } from "firebase/auth";
 import { trackPageView, trackMembershipApproval, trackMembershipRejection } from "@/lib/analytics";
@@ -26,6 +26,7 @@ export default function AdminVault() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [activeTab, setActiveTab] = useState<"pending" | "approved" | "rejected">("pending");
   const [processing, setProcessing] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string>("");
 
   useEffect(() => {
     trackPageView("Admin Dashboard");
@@ -105,17 +106,27 @@ async function handlePasswordLogin(e: React.FormEvent) {
     if (!request.id || !user?.email) return;
     
     setProcessing(request.id);
+    setError("");
+    setSuccessMessage("");
+    
     try {
-      // Step 1: Update Firestore (client-side with auth)
-      await approveRequest(request.id, request);
+      // Step 1: Update Firestore and get verification token
+      const approvalResult = await approveRequest(request.id, request);
       
-      // Step 2: Create Firebase user and send automated setup email
+      if (!approvalResult.success || !approvalResult.verificationToken) {
+        throw new Error('Failed to generate verification token');
+      }
+      
+      // Step 2: Send approval email with verification link
       const { createUserAndSendSetupEmail } = await import('@/app/actions/onboarding');
-      const result = await createUserAndSendSetupEmail(request.email, request.name);
+      const result = await createUserAndSendSetupEmail(request.email, request.name, approvalResult.verificationToken);
       
       if (!result.success) {
-        console.error('Failed to send setup email:', result.error);
-        setError('Member approved but failed to send setup email. You may need to send it manually.');
+        console.error('Failed to send approval email:', result.error);
+        setError('Member approved but failed to send email. You may need to resend it manually.');
+      } else {
+        setSuccessMessage(`✓ Approval email sent successfully to ${request.email}. Ask them to check spam folder if not received.`);
+        setTimeout(() => setSuccessMessage(""), 8000);
       }
       
       trackMembershipApproval(request.email);
@@ -164,12 +175,17 @@ async function handlePasswordLogin(e: React.FormEvent) {
   }
 
   const exportCSV = () => {
-    const headers = ["Name", "Email", "Company", "Role", "Status", "Created"];
+    const headers = ["Name", "Email", "Type", "Company", "Role", "Business Type", "Volume", "Phone", "Message", "Status", "Created"];
     const rows = requests.map((r) => [
       r.name,
       r.email,
-      r.company,
-      r.role,
+      r.memberType || 'N/A',
+      r.company || 'N/A',
+      r.role || 'N/A',
+      r.businessType || 'N/A',
+      r.monthlyVolume || 'N/A',
+      r.phone || 'N/A',
+      r.message || 'N/A',
       r.status,
       new Date(r.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString(),
     ]);
@@ -345,6 +361,38 @@ async function handlePasswordLogin(e: React.FormEvent) {
           </div>
         </motion.header>
 
+        {/* Success Message Banner */}
+        <AnimatePresence>
+          {successMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="mb-6 bg-green-50 border-l-4 border-green-500 p-4"
+            >
+              <p className={`${sans.className} text-sm text-green-800`}>
+                {successMessage}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Error Message Banner */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="mb-6 bg-red-50 border-l-4 border-red-500 p-4"
+            >
+              <p className={`${sans.className} text-sm text-red-800`}>
+                {error}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {requests.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -372,17 +420,45 @@ async function handlePasswordLogin(e: React.FormEvent) {
                     <div>
                       <h3 className={`${serif.className} text-xl md:text-2xl text-[#1A1A1A]`}>{request.name}</h3>
                       <p className={`${sans.className} text-sm text-[#6B6B6B]`}>{request.email}</p>
+                      <span className={`${sans.className} inline-block mt-2 px-3 py-1 text-xs uppercase tracking-wider ${request.memberType === 'private' ? 'bg-[#C5A059]/10 text-[#C5A059]' : 'bg-[#1A1A1A]/10 text-[#1A1A1A]'}`}>
+                        {request.memberType === 'private' ? 'Private Client' : 'Trade Partner'}
+                      </span>
                     </div>
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      <div>
-                        <span className={`${sans.className} text-xs uppercase tracking-wider text-[#C5A059]`}>Company</span>
-                        <p className={`${sans.className} text-[#1A1A1A]`}>{request.company}</p>
+                    {request.memberType === 'private' ? (
+                      <div className="flex flex-wrap gap-4 text-sm">
+                        {request.phone && (
+                          <div>
+                            <span className={`${sans.className} text-xs uppercase tracking-wider text-[#C5A059]`}>Phone</span>
+                            <p className={`${sans.className} text-[#1A1A1A]`}>{request.phone}</p>
+                          </div>
+                        )}
+                        {request.message && (
+                          <div className="col-span-full">
+                            <span className={`${sans.className} text-xs uppercase tracking-wider text-[#C5A059]`}>Message</span>
+                            <p className={`${sans.className} text-[#1A1A1A]`}>{request.message}</p>
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <span className={`${sans.className} text-xs uppercase tracking-wider text-[#C5A059]`}>Role</span>
-                        <p className={`${sans.className} text-[#1A1A1A]`}>{request.role}</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-4 text-sm">
+                        <div>
+                          <span className={`${sans.className} text-xs uppercase tracking-wider text-[#C5A059]`}>Company</span>
+                          <p className={`${sans.className} text-[#1A1A1A]`}>{request.company}</p>
+                        </div>
+                        <div>
+                          <span className={`${sans.className} text-xs uppercase tracking-wider text-[#C5A059]`}>Role</span>
+                          <p className={`${sans.className} text-[#1A1A1A]`}>{request.role}</p>
+                        </div>
+                        <div>
+                          <span className={`${sans.className} text-xs uppercase tracking-wider text-[#C5A059]`}>Type</span>
+                          <p className={`${sans.className} text-[#1A1A1A]`}>{request.businessType}</p>
+                        </div>
+                        <div>
+                          <span className={`${sans.className} text-xs uppercase tracking-wider text-[#C5A059]`}>Volume</span>
+                          <p className={`${sans.className} text-[#1A1A1A]`}>{request.monthlyVolume}</p>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                   <div className="flex md:flex-col gap-3">
                     <button
@@ -416,7 +492,7 @@ async function handlePasswordLogin(e: React.FormEvent) {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#E5E3DE]">
-                    {["Name", "Email", "Company", "Role", "Date"].map((h) => (
+                    {["Name", "Email", "Type", "Details", "Status", "Date"].map((h) => (
                       <th
                         key={h}
                         className={`${sans.className} px-6 py-4 text-left text-xs tracking-wider uppercase text-[#6B6B6B] font-medium`}
@@ -437,8 +513,25 @@ async function handlePasswordLogin(e: React.FormEvent) {
                     >
                       <td className={`${sans.className} px-6 py-5 text-[#1A1A1A] font-medium`}>{request.name}</td>
                       <td className={`${sans.className} px-6 py-5 text-[#6B6B6B]`}>{request.email}</td>
-                      <td className={`${sans.className} px-6 py-5 text-[#1A1A1A]`}>{request.company}</td>
-                      <td className={`${sans.className} px-6 py-5 text-[#6B6B6B]`}>{request.role}</td>
+                      <td className={`${sans.className} px-6 py-5`}>
+                        <span className={`inline-block px-2 py-1 text-xs uppercase tracking-wider ${request.memberType === 'private' ? 'bg-[#C5A059]/10 text-[#C5A059]' : 'bg-[#1A1A1A]/10 text-[#1A1A1A]'}`}>
+                          {request.memberType === 'private' ? 'Private' : 'Trade'}
+                        </span>
+                      </td>
+                      <td className={`${sans.className} px-6 py-5 text-[#6B6B6B] text-sm`}>
+                        {request.memberType === 'private' ? (
+                          request.phone || request.message || 'No details'
+                        ) : (
+                          `${request.company} • ${request.businessType} • ${request.monthlyVolume}`
+                        )}
+                      </td>
+                      <td className={`${sans.className} px-6 py-5`}>
+                        {activeTab === 'approved' && (
+                          <span className={`inline-block px-2 py-1 text-xs uppercase tracking-wider ${request.emailVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                            {request.emailVerified ? '✓ Verified' : 'Pending'}
+                          </span>
+                        )}
+                      </td>
                       <td className={`${sans.className} px-6 py-5 text-[#6B6B6B] text-sm`}>
                         {request.updatedAt ? new Date(request.updatedAt.seconds * 1000).toLocaleDateString() : 
                          request.createdAt ? new Date(request.createdAt.seconds * 1000).toLocaleDateString() : 

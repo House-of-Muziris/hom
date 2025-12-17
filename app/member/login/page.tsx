@@ -11,8 +11,11 @@ import { useRouter } from 'next/navigation';
 
 export default function MemberLogin() {
   const router = useRouter();
+  const [step, setStep] = useState<1 | 2>(1);
+  const [hasPassword, setHasPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -20,17 +23,17 @@ export default function MemberLogin() {
     trackPageView('Member Login');
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      // Check if user has an approved membership request
       const approvedRequest = await getApprovedRequest(email);
       
       if (!approvedRequest.success) {
-        throw new Error('Unable to verify membership status');
+        console.error('Firestore error:', approvedRequest.error);
+        throw new Error(`Unable to verify membership status: ${approvedRequest.error}`);
       }
 
       if (!approvedRequest.data) {
@@ -39,19 +42,71 @@ export default function MemberLogin() {
         return;
       }
 
-      // Sign in with password
-      const result = await signInWithPassword(email, password);
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Invalid email or password');
+      // Check if email is verified
+      if (!approvedRequest.data.emailVerified) {
+        setError('Please verify your email first. Check your inbox for the verification link we sent when your membership was approved.');
+        setLoading(false);
+        return;
       }
 
-      // Redirect to member dashboard
-      router.push('/dashboard');
+      const { checkUserHasPassword } = await import('@/lib/auth');
+      const passwordCheck = await checkUserHasPassword(email);
+
+      if (!passwordCheck.success) {
+        throw new Error(passwordCheck.error || 'Failed to verify account status');
+      }
+
+      setHasPassword(passwordCheck.hasPassword || false);
+      setStep(2);
+      setLoading(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred';
       setError(message);
-    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      if (hasPassword) {
+        const result = await signInWithPassword(email, password);
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Invalid password');
+        }
+
+        router.push('/dashboard');
+      } else {
+        // User needs to create password for the first time
+        if (password !== confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+
+        if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+          setError('Password must be 8+ characters with uppercase, lowercase, and number');
+          setLoading(false);
+          return;
+        }
+
+        // Create password-based credential for approved member
+        const { createPasswordForApprovedMember } = await import('@/lib/auth');
+        const result = await createPasswordForApprovedMember(email, password);
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to create password');
+        }
+
+        router.push('/dashboard');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      setError(message);
       setLoading(false);
     }
   };
@@ -74,41 +129,153 @@ export default function MemberLogin() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className={`${sans.className} block text-xs tracking-wider uppercase text-[#6B6B6B] mb-2`}>
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={`${sans.className} w-full px-4 py-3 border border-[#E5E3DE] bg-transparent outline-none focus:border-[#C5A059] transition-colors`}
-                placeholder="member@example.com"
-                required
-                disabled={loading}
-              />
+          {/* Step indicator */}
+          <div className="flex items-center justify-center mb-8">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${step === 1 ? 'bg-[#C5A059] text-white' : 'bg-[#E5E3DE] text-[#6B6B6B]'}`}>
+                1
+              </div>
+              <div className="w-12 h-0.5 bg-[#E5E3DE]"></div>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${step === 2 ? 'bg-[#C5A059] text-white' : 'bg-[#E5E3DE] text-[#6B6B6B]'}`}>
+                2
+              </div>
             </div>
+          </div>
 
-            {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className={`${sans.className} p-4 bg-red-50 border border-red-200 text-red-800 text-sm`}
-              >
-                {error}
+          {step === 1 ? (
+            <form onSubmit={handleEmailSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="email" className={`${sans.className} block text-xs tracking-wider uppercase text-[#6B6B6B] mb-2`}>
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={`${sans.className} w-full px-4 py-3 border border-[#E5E3DE] bg-transparent outline-none focus:border-[#C5A059] transition-colors disabled:opacity-50`}
+                  placeholder="member@example.com"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={`${sans.className} p-4 bg-red-50 border border-red-200 text-red-800 text-sm`}
+                >
+                  {error}
               </motion.div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className={`${sans.className} w-full py-4 bg-[#1A1A1A] text-[#F0EFEA] text-sm tracking-[0.15em] uppercase hover:bg-[#C5A059] transition-colors disabled:opacity-50`}
-            >
-              {loading ? 'Sending...' : 'Send Login Link'}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loading}
+                className={`${sans.className} w-full py-4 bg-[#1A1A1A] text-[#F0EFEA] text-sm tracking-[0.15em] uppercase hover:bg-[#C5A059] transition-colors disabled:opacity-50`}
+              >
+                {loading ? 'Verifying...' : 'Continue'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handlePasswordSubmit} className="space-y-6">
+              <div>
+                <label className={`${sans.className} block text-xs tracking-wider uppercase text-[#6B6B6B] mb-2`}>
+                  Email Address
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={email}
+                    disabled
+                    className={`${sans.className} flex-1 px-4 py-3 border border-[#E5E3DE] bg-[#F0EFEA] text-[#6B6B6B]`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setStep(1); setError(''); }}
+                    className={`${sans.className} px-4 py-3 text-xs text-[#C5A059] hover:underline`}
+                  >
+                    Change
+                  </button>
+                </div>
+              </div>
+
+              {hasPassword ? (
+                <div>
+                  <label htmlFor="password" className={`${sans.className} block text-xs tracking-wider uppercase text-[#6B6B6B] mb-2`}>
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`${sans.className} w-full px-4 py-3 border border-[#E5E3DE] bg-transparent outline-none focus:border-[#C5A059] transition-colors disabled:opacity-50`}
+                    placeholder="Enter your password"
+                    required
+                    disabled={loading}
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label htmlFor="password" className={`${sans.className} block text-xs tracking-wider uppercase text-[#6B6B6B] mb-2`}>
+                      Create Password
+                    </label>
+                    <input
+                      type="password"
+                      id="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className={`${sans.className} w-full px-4 py-3 border border-[#E5E3DE] bg-transparent outline-none focus:border-[#C5A059] transition-colors disabled:opacity-50`}
+                      placeholder="Create a strong password"
+                      required
+                      disabled={loading}
+                      autoFocus
+                    />
+                    <p className={`${sans.className} text-xs text-[#999] mt-2`}>
+                      8+ characters, uppercase, lowercase, and number
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="confirmPassword" className={`${sans.className} block text-xs tracking-wider uppercase text-[#6B6B6B] mb-2`}>
+                      Confirm Password
+                    </label>
+                    <input
+                      type="password"
+                      id="confirmPassword"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className={`${sans.className} w-full px-4 py-3 border border-[#E5E3DE] bg-transparent outline-none focus:border-[#C5A059] transition-colors disabled:opacity-50`}
+                      placeholder="Re-enter your password"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                </>
+              )}
+
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={`${sans.className} p-4 bg-red-50 border border-red-200 text-red-800 text-sm`}
+                >
+                  {error}
+                </motion.div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className={`${sans.className} w-full py-4 bg-[#1A1A1A] text-[#F0EFEA] text-sm tracking-[0.15em] uppercase hover:bg-[#C5A059] transition-colors disabled:opacity-50`}
+              >
+                {loading ? (hasPassword ? 'Signing In...' : 'Setting Up...') : (hasPassword ? 'Sign In' : 'Create Account')}
+              </button>
+            </form>
+          )}
 
           <div className="mt-8 pt-6 border-t border-[#E5E3DE] text-center">
             <p className={`${sans.className} text-sm text-[#6B6B6B] mb-2`}>Not a member yet?</p>
@@ -122,7 +289,7 @@ export default function MemberLogin() {
 
           <div className={`${sans.className} mt-6 text-center`}>
             <p className="text-xs text-[#999]">
-              Secure passwordless authentication - Link expires in 60 minutes
+              Secure password authentication • No email quota limits
             </p>
           </div>
         </div>
@@ -130,51 +297,3 @@ export default function MemberLogin() {
     </div>
   );
 }
-<div>
-              <label htmlFor="password" className={`${sans.className} block text-xs tracking-wider uppercase text-[#6B6B6B] mb-2`}>
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`${sans.className} w-full px-4 py-3 border border-[#E5E3DE] bg-transparent outline-none focus:border-[#C5A059] transition-colors`}
-                placeholder="Enter your password"
-                required
-                disabled={loading}
-              />
-            </div>
-
-            {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className={`${sans.className} p-4 bg-red-50 border border-red-200 text-red-800 text-sm`}
-              >
-                {error}
-              </motion.div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className={`${sans.className} w-full py-4 bg-[#1A1A1A] text-[#F0EFEA] text-sm tracking-[0.15em] uppercase hover:bg-[#C5A059] transition-colors disabled:opacity-50`}
-            >
-              {loading ? 'Signing In...' : 'Sign In'}
-            </button>
-          </form>
-
-          <div className="mt-8 pt-6 border-t border-[#E5E3DE] text-center">
-            <p className={`${sans.className} text-sm text-[#6B6B6B] mb-2`}>Not a member yet?</p>
-            <a
-              href="/#waitlist"
-              className={`${sans.className} text-[#C5A059] hover:underline text-sm font-medium`}
-            >
-              Apply for Membership
-            </a>
-          </div>
-
-          <div className={`${sans.className} mt-6 text-center`}>
-            <p className="text-xs text-[#999]">
-              Secure password authentication • No email quota limit

@@ -71,16 +71,24 @@ export function Hero() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1.2, delay: 1.0, ease: [0.25, 0.1, 0.25, 1] }}
-            className="mt-10"
+            className="mt-10 flex flex-wrap items-center gap-4"
           >
             {user ? (
-              <MagneticButton href="/member">
-                Access the Guild
+              <MagneticButton href="/dashboard">
+                Access Dashboard
               </MagneticButton>
             ) : (
-              <MagneticButton href="#waitlist">
-                Join the Guild
-              </MagneticButton>
+              <>
+                <MagneticButton href="#waitlist">
+                  Join the Guild
+                </MagneticButton>
+                <a
+                  href="/login"
+                  className={`${sans.className} px-6 py-4 border border-[#1A1A1A]/20 text-[#1A1A1A] text-sm tracking-[0.15em] uppercase hover:border-[#1A1A1A] hover:bg-[#1A1A1A] hover:text-[#F0EFEA] transition-colors`}
+                >
+                  Member Login
+                </a>
+              </>
             )}
           </motion.div>
         </motion.div>

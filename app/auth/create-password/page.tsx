@@ -29,7 +29,16 @@ export default function CreatePasswordPage() {
       return;
     }
 
-    // If user already has a password provider, redirect to dashboard
+    // Check if password already set in profile
+    const { getUserProfile } = await import("@/lib/db");
+    const profileResult = await getUserProfile(user.uid, user.email || "");
+    
+    if (profileResult.success && profileResult.data?.hasSetPassword) {
+      router.push("/dashboard");
+      return;
+    }
+
+    // Also check provider as backup
     const hasPassword = user.providerData.some(p => p.providerId === "password");
     if (hasPassword) {
       router.push("/dashboard");
@@ -58,6 +67,12 @@ export default function CreatePasswordPage() {
     const result = await createPasswordForUser(password);
 
     if (result.success) {
+      // Mark password as set in profile
+      const user = await getCurrentUser();
+      if (user) {
+        const { markPasswordSet } = await import("@/lib/db");
+        await markPasswordSet(user.uid);
+      }
       router.push("/dashboard");
     } else {
       setError(result.error || "Failed to create password");

@@ -55,7 +55,51 @@ function FloatingField({ label, name, type = "text", required = true }: FieldPro
   );
 }
 
+function FloatingTextarea({ label, name, required = false }: Omit<FieldProps, "type">) {
+  const [focused, setFocused] = useState(false);
+  const [value, setValue] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const isActive = focused || value.length > 0;
+
+  return (
+    <div className="relative" onClick={() => textareaRef.current?.focus()}>
+      <motion.label
+        className={`${sans.className} absolute left-0 pointer-events-none text-[#6B6B6B] transition-all duration-300 origin-left`}
+        animate={{
+          y: isActive ? -24 : 0,
+          scale: isActive ? 0.75 : 1,
+          color: focused ? "#C5A059" : "#6B6B6B",
+        }}
+      >
+        {label}
+      </motion.label>
+      <textarea
+        ref={textareaRef}
+        name={name}
+        required={required}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        rows={4}
+        className={`${sans.className} w-full bg-transparent border-b border-[#E5E3DE] pb-3 pt-1 text-[#1A1A1A] outline-none transition-colors focus:border-[#C5A059] resize-none`}
+      />
+      <motion.div
+        className="absolute bottom-0 left-0 h-px bg-[#C5A059]"
+        initial={{ scaleX: 0 }}
+        animate={{ scaleX: focused ? 1 : 0 }}
+        style={{ originX: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      />
+    </div>
+  );
+}
+
+type MemberType = "private" | "trade";
+
 export function Waitlist() {
+  const [memberType, setMemberType] = useState<MemberType>("private");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -68,12 +112,23 @@ export function Waitlist() {
     const form = e.currentTarget;
     const data = new FormData(form);
     
-    const memberData = {
+    const memberData: any = {
+      memberType,
       name: data.get("name") as string,
       email: data.get("email") as string,
-      company: data.get("company") as string,
-      role: data.get("role") as string,
     };
+
+    if (memberType === "private") {
+      const phone = data.get("phone") as string;
+      const message = data.get("message") as string;
+      if (phone) memberData.phone = phone;
+      if (message) memberData.message = message;
+    } else {
+      memberData.company = data.get("company") as string;
+      memberData.role = data.get("role") as string;
+      memberData.businessType = data.get("businessType") as string;
+      memberData.monthlyVolume = data.get("monthlyVolume") as string;
+    }
     
     try {
       // Add timeout to prevent hanging
@@ -89,7 +144,7 @@ export function Waitlist() {
       setLoading(false);
       
       if (result.success) {
-        trackMembershipRequest(memberData.email, memberData.company);
+        trackMembershipRequest(memberData.email, memberData.company || "Private Client");
         setSubmitted(true);
         form.reset();
       } else {
@@ -155,51 +210,122 @@ export function Waitlist() {
 
           <AnimatePresence mode="wait">
             {!submitted ? (
-              <motion.form
+              <motion.div
                 key="form"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onSubmit={handleSubmit}
-                className="space-y-10"
               >
-                <FloatingField label="Full Name" name="name" />
-                <FloatingField label="Email Address" name="email" type="email" />
-                <FloatingField label="Establishment / Company" name="company" />
-                <FloatingField label="Role / Title" name="role" />
-
-                <motion.button
-                  type="submit"
-                  disabled={loading}
-                  whileTap={{ scale: 0.98 }}
-                  className={`${sans.className} w-full py-4 bg-[#1A1A1A] text-[#F0EFEA] text-sm tracking-[0.15em] uppercase transition-all duration-300 hover:bg-[#C5A059] disabled:opacity-60`}
-                >
-                  {loading ? (
-                    <motion.span
-                      animate={{ opacity: [1, 0.5, 1] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    >
-                      Processing...
-                    </motion.span>
-                  ) : (
-                    "Request Membership"
-                  )}
-                </motion.button>
-
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`${sans.className} text-sm text-red-600 text-center`}
+                {/* Toggle Tabs */}
+                <div className="flex gap-2 mb-8 p-1 bg-[#F0EFEA] border border-[#E5E3DE]">
+                  <button
+                    type="button"
+                    onClick={() => setMemberType("private")}
+                    className={`${sans.className} flex-1 py-3 text-xs tracking-wider uppercase transition-all ${
+                      memberType === "private"
+                        ? "bg-white text-[#1A1A1A] border border-[#E5E3DE]"
+                        : "text-[#6B6B6B] hover:text-[#1A1A1A]"
+                    }`}
                   >
-                    {error}
-                  </motion.p>
-                )}
+                    Private Client
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMemberType("trade")}
+                    className={`${sans.className} flex-1 py-3 text-xs tracking-wider uppercase transition-all ${
+                      memberType === "trade"
+                        ? "bg-white text-[#1A1A1A] border border-[#E5E3DE]"
+                        : "text-[#6B6B6B] hover:text-[#1A1A1A]"
+                    }`}
+                  >
+                    Trade Partners
+                  </button>
+                </div>
 
-                <p className={`${sans.className} text-xs text-center text-[#6B6B6B]`}>
-                  By applying, you agree to our terms of service and privacy policy.
-                </p>
-              </motion.form>
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  {memberType === "private" ? (
+                    <>
+                      <FloatingField label="Full Name" name="name" />
+                      <FloatingField label="Email Address" name="email" type="email" />
+                      <FloatingField label="Phone Number" name="phone" type="tel" required={false} />
+                      <FloatingTextarea label="What brings you to Muziris?" name="message" required={false} />
+                    </>
+                  ) : (
+                    <>
+                      <FloatingField label="Company / Establishment Name" name="company" />
+                      <FloatingField label="Contact Person Name" name="name" />
+                      <FloatingField label="Business Email" name="email" type="email" />
+                      
+                      <div className="relative">
+                        <label className={`${sans.className} block text-xs tracking-wider uppercase text-[#6B6B6B] mb-3`}>
+                          Business Type
+                        </label>
+                        <select
+                          name="businessType"
+                          required
+                          className={`${sans.className} w-full px-4 py-3 border border-[#E5E3DE] bg-white text-[#1A1A1A] outline-none focus:border-[#C5A059] transition-colors appearance-none cursor-pointer`}
+                        >
+                          <option value="">Select type...</option>
+                          <option value="restaurant">Restaurant / Cafe</option>
+                          <option value="hotel">Hotel / Hospitality</option>
+                          <option value="corporate">Corporate Gifting</option>
+                          <option value="retailer">Retailer</option>
+                        </select>
+                        <div className="pointer-events-none absolute right-4 top-[42px] text-[#6B6B6B]">▼</div>
+                      </div>
+
+                      <div className="relative">
+                        <label className={`${sans.className} block text-xs tracking-wider uppercase text-[#6B6B6B] mb-3`}>
+                          Estimated Monthly Volume
+                        </label>
+                        <select
+                          name="monthlyVolume"
+                          required
+                          className={`${sans.className} w-full px-4 py-3 border border-[#E5E3DE] bg-white text-[#1A1A1A] outline-none focus:border-[#C5A059] transition-colors appearance-none cursor-pointer`}
+                        >
+                          <option value="">Select volume...</option>
+                          <option value="<1kg">{"< 1 kg (Sampler)"}</option>
+                          <option value="1-10kg">1 - 10 kg</option>
+                          <option value="10+kg">10+ kg (Bulk)</option>
+                        </select>
+                        <div className="pointer-events-none absolute right-4 top-[42px] text-[#6B6B6B]">▼</div>
+                      </div>
+                    </>
+                  )}
+
+                  <motion.button
+                    type="submit"
+                    disabled={loading}
+                    whileTap={{ scale: 0.98 }}
+                    className={`${sans.className} w-full py-4 bg-[#1A1A1A] text-[#F0EFEA] text-sm tracking-[0.15em] uppercase transition-all duration-300 hover:bg-[#C5A059] disabled:opacity-60`}
+                  >
+                    {loading ? (
+                      <motion.span
+                        animate={{ opacity: [1, 0.5, 1] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      >
+                        Processing...
+                      </motion.span>
+                    ) : (
+                      "Request Membership"
+                    )}
+                  </motion.button>
+
+                  {error && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`${sans.className} text-sm text-red-600 text-center`}
+                    >
+                      {error}
+                    </motion.p>
+                  )}
+
+                  <p className={`${sans.className} text-xs text-center text-[#6B6B6B]`}>
+                    By applying, you agree to our terms of service and privacy policy.
+                  </p>
+                </form>
+              </motion.div>
             ) : (
               <motion.div
                 key="success"
