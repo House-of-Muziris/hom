@@ -1,23 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { serif, sans } from "@/lib/fonts";
+import { SmoothScroll } from "@/components/ui/smooth-scroll";
+import { Cursor } from "@/components/cursor";
 import "./globals.css";
-<link
-  href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap"
-  rel="stylesheet"
-/>;
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
-  title: "House Of Muziris",
-  description: "Experience Spices That Once Moved Empires.",
+  title: "House of Muziris — Where Empires Came for Spice",
+  description: "Experience the legacy of Kerala's ancient spice trade. We supply the world's finest establishments with single-origin spices.",
+  keywords: ["spices", "Kerala", "premium", "wholesale", "pepper", "cardamom"],
 };
 
 export default function RootLayout({
@@ -26,11 +16,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+    <html lang="en" className={`${serif.variable} ${sans.variable}`}>
+      <body className="antialiased bg-[#F0EFEA] text-[#1A1A1A] selection:bg-[#C5A059]/30">
+        <SmoothScroll>
+          {children}
+        </SmoothScroll>
+        <Cursor />
       </body>
     </html>
   );

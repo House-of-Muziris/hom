@@ -1,72 +1,76 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { cinzel, manrope } from "@/lib/fonts";
+import { serif, sans } from "@/lib/fonts";
+import { fadeUp, stagger } from "@/lib/theme";
 
 const FEATURES = [
-  {
-    title: "Rare & Potent Spices",
-    desc: "Single-origin Pepper, Cardamom, Turmeric, and more — celebrated for their aroma and complexity.",
-  },
-  {
-    title: "Direct from Source",
-    desc: "We partner directly with farmers, ensuring fair trade, traceability, and the freshest harvests.",
-  },
-  {
-    title: "The Story in the Spice",
-    desc: "Each batch carries its own tale — connecting your craft to 2,000 years of Kerala's spice history.",
-  },
+  { num: "01", title: "Single Origin", desc: "Pepper, Cardamom, Turmeric — each traced to its exact terroir." },
+  { num: "02", title: "Direct Trade", desc: "Partnered with multi-generational farms across Kerala." },
+  { num: "03", title: "Living History", desc: "2,000 years of spice heritage in every shipment." },
 ];
 
 export function Features() {
   return (
-    <section className="py-32 bg-[#f3f1ec] dark:bg-[#141414]">
-      <div className="max-w-7xl mx-auto px-8 text-center">
-        <motion.h3
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          viewport={{ once: true }}
-          className={`${cinzel.className} text-4xl text-[#705a2e] dark:text-[#c7b174] mb-16`}
+    <section className="py-32 lg:py-48 bg-[#1A1A1A] text-[#F0EFEA] overflow-hidden">
+      <div className="max-w-7xl mx-auto px-8 lg:px-16">
+        <motion.div
+          variants={stagger}
+          initial="initial"
+          whileInView="animate"
+          viewport={{ once: true, margin: "-100px" }}
+          className="text-center mb-20"
         >
-          What We Deliver
-        </motion.h3>
+          <motion.span
+            variants={fadeUp}
+            className={`${sans.className} text-sm tracking-[0.3em] uppercase text-[#C5A059] mb-6 block`}
+          >
+            The Collection
+          </motion.span>
+          <motion.h2
+            variants={fadeUp}
+            className={`${serif.className} text-4xl md:text-5xl lg:text-6xl leading-[1.1]`}
+          >
+            What We <em>Deliver</em>
+          </motion.h2>
+        </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-8 mb-20">
-          {FEATURES.map((card, i) => (
+        <div className="grid md:grid-cols-3 gap-px bg-[#2D2D2D]">
+          {FEATURES.map((f, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.2, duration: 0.8 }}
+              transition={{ delay: i * 0.15, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
               viewport={{ once: true }}
-              className="p-10 bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-sm border border-[#eae8e3] dark:border-[#2c2c2c] hover:shadow-lg transition-all duration-300"
+              className="bg-[#1A1A1A] p-10 lg:p-14 group hover:bg-[#222] transition-colors duration-500"
             >
-              <h4 className={`${cinzel.className} text-2xl text-[#705a2e] dark:text-[#c7b174] mb-6`}>
-                {card.title}
-              </h4>
-              <p className={`${manrope.className} text-gray-700 dark:text-gray-300 leading-relaxed`}>
-                {card.desc}
+              <span className={`${sans.className} text-xs tracking-[0.2em] text-[#C5A059]`}>{f.num}</span>
+              <h3 className={`${serif.className} text-2xl lg:text-3xl mt-6 mb-4 group-hover:text-[#C5A059] transition-colors`}>
+                {f.title}
+              </h3>
+              <p className={`${sans.className} text-[#6B6B6B] leading-relaxed font-light`}>
+                {f.desc}
               </p>
             </motion.div>
           ))}
         </div>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
           viewport={{ once: true }}
-          className="max-w-4xl mx-auto"
+          transition={{ delay: 0.3, duration: 0.8 }}
+          className="mt-24 text-center"
         >
-          <h4 className={`${cinzel.className} text-3xl text-[#705a2e] dark:text-[#c7b174] mb-8`}>
-            Trusted by the World's Finest
-          </h4>
-          <p className={`${manrope.className} text-lg text-gray-700 dark:text-gray-300 leading-relaxed`}>
-            We serve Michelin-starred chefs, specialty food distributors, and
-            gourmet brands who understand that an extraordinary dish begins with
-            an extraordinary ingredient.
+          <p className={`${sans.className} text-sm tracking-[0.2em] uppercase text-[#6B6B6B] mb-6`}>
+            Trusted by the world's finest
           </p>
+          <div className="flex justify-center items-center gap-12 opacity-40">
+            {["NOMA", "ELEVEN MADISON", "THE LEDBURY", "GAGGAN"].map((n) => (
+              <span key={n} className={`${sans.className} text-sm tracking-[0.15em]`}>{n}</span>
+            ))}
+          </div>
         </motion.div>
       </div>
     </section>

@@ -1,4 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# House of M - Premium Spice Membership Platform
+
+Museum-quality, Awwwards-standard Next.js application with Firebase backend.
+
+## 🚀 Quick Start
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3001](http://localhost:3001)
+
+## 📚 Documentation
+
+- **[SETUP.md](SETUP.md)** - Complete production deployment guide
+- **[DOCS.md](DOCS.md)** - Architecture and technical documentation
+
+## ✨ Features
+
+- Firebase Authentication (password + passwordless)
+- Firestore Database with real-time sync
+- Firebase Analytics on all pages
+- Museum-themed email templates
+- Shopping cart with checkout flow
+- Admin dashboard for membership management
+- Custom cursor and smooth scroll
+- Parallax effects and animations
+
+## 🔐 Environment Setup
+
+Create `.env.local` (see `.env.local.example`):
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=your_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+# ... see .env.local.example for full list
+```
+
+## 🎨 Tech Stack
+
+- Next.js 16 (App Router, Turbopack)
+- Firebase (Auth, Firestore, Analytics)
+- Framer Motion
+- Tailwind CSS
+- TypeScript
+
+---
+
+This is a [Next.js](https://nextjs.org) project.
 
 ## Getting Started
 
