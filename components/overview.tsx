@@ -13,7 +13,7 @@ export function Overview() {
   return (
     <section ref={ref} id="overview" className="relative py-32 lg:py-48 bg-[#EAE8E3] overflow-hidden">
       {/* Decorative line */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-24 bg-gradient-to-b from-transparent via-[#C5A059] to-transparent" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-24 bg-linear-to-b from-transparent via-[#C5A059] to-transparent" />
 
       <div className="max-w-6xl mx-auto px-8 lg:px-16 grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
         <motion.div

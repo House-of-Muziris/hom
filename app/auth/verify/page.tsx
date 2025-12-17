@@ -1,23 +1,20 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { trackPageView } from "@/lib/analytics";
 import { motion } from "framer-motion";
 import { serif, sans } from "@/lib/fonts";
-import { verifyPasswordlessLink } from "@/lib/auth";
 
 function VerifyContent() {
   const router = useRouter();
   const [status, setStatus] = useState<"verifying" | "success" | "error">("verifying");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    trackPageView("Email Verification");
-    verifyLink();
-  }, []);
-
-  async function verifyLink() {
+  const verifyLink = useCallback(async () => {
+    // Dynamic import to avoid SSR issues
+    const { verifyPasswordlessLink } = await import("@/lib/auth");
+    
     const email = typeof window !== "undefined" ? window.localStorage.getItem("emailForSignIn") : null;
     const link = typeof window !== "undefined" ? window.location.href : "";
 
@@ -64,7 +61,12 @@ function VerifyContent() {
       setStatus("error");
       setError(result.error || "Verification failed");
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    trackPageView("Email Verification");
+    verifyLink();
+  }, [verifyLink]);
 
   return (
     <div className="min-h-screen bg-[#F0EFEA] flex items-center justify-center p-4">

@@ -7,8 +7,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { serif, sans } from "@/lib/fonts";
 import { getCurrentUser, signOut } from "@/lib/auth";
 import { getUserCart, updateUserCart, type CartItem } from "@/lib/db";
-import { getFirestore, collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
+import { getDb } from "@/lib/firebase";
 
 interface Spice {
   id: string;
@@ -60,15 +60,14 @@ export default function DashboardPage() {
 
   async function loadSpices() {
     try {
-      const spicesRef = collection(db, "spices");
+      const spicesRef = collection(getDb(), "spices");
       const snapshot = await getDocs(spicesRef);
-      const spicesList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
+      const spicesList = snapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data()
       })) as Spice[];
-      setSpices(spicesList);
-    } catch (error) {
-      console.error("Error loading spices:", error);
+      setSpices(spicesList.length > 0 ? spicesList : SAMPLE_SPICES);
+    } catch {
       // If no spices in database, use sample data
       setSpices(SAMPLE_SPICES);
     }
@@ -241,7 +240,7 @@ export default function DashboardPage() {
               transition={{ delay: index * 0.1 }}
               className="bg-white border border-[#E5E3DE] overflow-hidden group"
             >
-              <div className="aspect-square bg-gradient-to-br from-[#C5A059]/20 to-[#E5E3DE] flex items-center justify-center overflow-hidden">
+              <div className="aspect-square bg-linear-to-br from-[#C5A059]/20 to-[#E5E3DE] flex items-center justify-center overflow-hidden">
                 {spice.image ? (
                   <img src={spice.image} alt={spice.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                 ) : (

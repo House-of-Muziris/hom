@@ -10,7 +10,7 @@ import { signInWithPassword, sendPasswordlessEmail, getCurrentUser } from "@/lib
 export default function MemberLogin() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [authMode, setAuthMode] = useState<"password" | "passwordless">("passwordless");
+  const [authMode, setAuthMode] = useState<"password" | "passwordless">("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -90,16 +90,6 @@ export default function MemberLogin() {
 
         <div className="flex gap-2 mb-8">
           <button
-            onClick={() => setAuthMode("passwordless")}
-            className={`${sans.className} flex-1 py-3 text-xs tracking-wider uppercase transition-colors ${
-              authMode === "passwordless"
-                ? "bg-[#1A1A1A] text-[#F0EFEA]"
-                : "bg-transparent text-[#6B6B6B] border border-[#E5E3DE]"
-            }`}
-          >
-            Email Link
-          </button>
-          <button
             onClick={() => setAuthMode("password")}
             className={`${sans.className} flex-1 py-3 text-xs tracking-wider uppercase transition-colors ${
               authMode === "password"
@@ -108,6 +98,16 @@ export default function MemberLogin() {
             }`}
           >
             Password
+          </button>
+          <button
+            onClick={() => setAuthMode("passwordless")}
+            className={`${sans.className} flex-1 py-3 text-xs tracking-wider uppercase transition-colors ${
+              authMode === "passwordless"
+                ? "bg-[#1A1A1A] text-[#F0EFEA]"
+                : "bg-transparent text-[#6B6B6B] border border-[#E5E3DE]"
+            }`}
+          >
+            Email Link
           </button>
         </div>
 

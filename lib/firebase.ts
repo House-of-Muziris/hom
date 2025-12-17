@@ -1,7 +1,7 @@
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getAnalytics, Analytics } from "firebase/analytics";
+import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
+import { getAuth as firebaseGetAuth, type Auth } from "firebase/auth";
+import { getFirestore as firebaseGetFirestore, type Firestore } from "firebase/firestore";
+import { getAnalytics as firebaseGetAnalytics, type Analytics } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,23 +13,51 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Validate required environment variables
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  throw new Error("Missing required Firebase configuration. Check your .env.local file.");
+// Check if we're in a browser environment with valid config
+const isConfigValid = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
+const isBrowser = typeof window !== "undefined";
+
+// Lazy initialization pattern to prevent build-time errors
+let _app: FirebaseApp | null = null;
+let _auth: Auth | null = null;
+let _db: Firestore | null = null;
+let _analytics: Analytics | null = null;
+
+function getApp(): FirebaseApp {
+  if (!_app) {
+    if (!isConfigValid) {
+      throw new Error("Firebase configuration is missing. Ensure environment variables are set.");
+    }
+    _app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  }
+  return _app;
 }
 
-// Initialize Firebase only once
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// Analytics is only available in the browser
-let analytics: Analytics | null = null;
-export const getAnalyticsInstance = () => {
-  if (typeof window !== "undefined" && !analytics) {
-    analytics = getAnalytics(app);
+function getAuth(): Auth {
+  if (!_auth) {
+    _auth = firebaseGetAuth(getApp());
   }
-  return analytics;
-};
+  return _auth;
+}
 
-export { app, auth, db };
+function getDb(): Firestore {
+  if (!_db) {
+    _db = firebaseGetFirestore(getApp());
+  }
+  return _db;
+}
+
+function getAnalyticsInstance(): Analytics | null {
+  if (isBrowser && !_analytics && isConfigValid) {
+    try {
+      _analytics = firebaseGetAnalytics(getApp());
+    } catch {
+      // Analytics may fail in some environments
+      return null;
+    }
+  }
+  return _analytics;
+}
+
+// Export getters for lazy initialization
+export { getApp, getAuth, getDb, getAnalyticsInstance };

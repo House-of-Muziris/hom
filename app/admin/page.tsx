@@ -19,6 +19,7 @@ export default function AdminVault() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   
@@ -70,7 +71,7 @@ export default function AdminVault() {
     }
   }
 
-async function handlePasswordlessLogin(e: React.FormEvent) {
+async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
@@ -84,33 +85,18 @@ async function handlePasswordlessLogin(e: React.FormEvent) {
     }
     
     try {
-      // First, trigger Firebase auth link generation
-      const firebaseResult = await sendPasswordlessEmail(email);
+      // Use password authentication to bypass Firebase email quota
+      const { signInWithPassword } = await import('@/lib/auth');
+      const result = await signInWithPassword(normalizedEmail, password);
       
-      if (!firebaseResult.success) {
-        throw new Error(firebaseResult.error || "Failed to generate auth link");
+      if (!result.success) {
+        throw new Error(result.error || "Authentication failed");
       }
 
-      // Then send the email via Resend for better deliverability
-      const resendResponse = await fetch('/api/auth/admin-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: normalizedEmail, 
-          origin: window.location.origin 
-        })
-      });
-
-      const resendResult = await resendResponse.json();
-
-      if (!resendResult.success) {
-        throw new Error(resendResult.error || "Failed to send email");
-      }
-
-      setEmailSent(true);
-    } catch (error: any) {
-      setError(error.message || "Failed to send login link");
-    } finally {
+      setUser(result.user!);
+      setLoading(false);
+    } catch (err: any) {
+      setError(err.message || "Login failed");
       setLoading(false);
     }
   }
@@ -123,8 +109,14 @@ async function handlePasswordlessLogin(e: React.FormEvent) {
       // Step 1: Update Firestore (client-side with auth)
       await approveRequest(request.id, request);
       
-      // Step 2: Send email (server-side with Resend API key)
-      await sendApprovalEmailAction(user.email, request.email, request.name);
+      // Step 2: Create Firebase user and send automated setup email
+      const { createUserAndSendSetupEmail } = await import('@/app/actions/onboarding');
+      const result = await createUserAndSendSetupEmail(request.email, request.name);
+      
+      if (!result.success) {
+        console.error('Failed to send setup email:', result.error);
+        setError('Member approved but failed to send setup email. You may need to send it manually.');
+      }
       
       trackMembershipApproval(request.email);
       await loadData();
@@ -229,60 +221,54 @@ async function handlePasswordlessLogin(e: React.FormEvent) {
           </div>
           <h1 className={`${serif.className} text-2xl md:text-3xl text-[#1A1A1A] mb-2 text-center`}>The Vault</h1>
 
-          {emailSent ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center py-8"
+          <form onSubmit={handlePasswordLogin} className="space-y-4">
+            <div>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Admin email address"
+                required
+                className={`${sans.className} w-full px-4 py-3 border border-[#E5E3DE] bg-transparent outline-none focus:border-[#C5A059] transition-colors text-sm`}
+              />
+            </div>
+
+            <div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                required
+                className={`${sans.className} w-full px-4 py-3 border border-[#E5E3DE] bg-transparent outline-none focus:border-[#C5A059] transition-colors text-sm`}
+              />
+            </div>
+
+            <AnimatePresence>
+              {error && (
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className={`${sans.className} text-sm text-red-600 text-center`}
+                >
+                  {error}
+                </motion.p>
+              )}
+            </AnimatePresence>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`${sans.className} w-full py-4 bg-[#1A1A1A] text-[#F0EFEA] text-sm tracking-[0.15em] uppercase hover:bg-[#C5A059] transition-colors disabled:opacity-50`}
             >
-              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[#C5A059]/10 flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 8l8 5 8-5M4 8v8a2 2 0 002 2h12a2 2 0 002-2V8" stroke="#C5A059" strokeWidth="1.5" />
-                </svg>
-              </div>
-              <h3 className={`${serif.className} text-xl text-[#1A1A1A] mb-2`}>Check Your Email</h3>
-              <p className={`${sans.className} text-[#6B6B6B] text-sm`}>
-                We've sent a sign-in link to <strong>{email}</strong>
-              </p>
-            </motion.div>
-          ) : (
-            <form onSubmit={handlePasswordlessLogin} className="space-y-4">
-              <div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Admin email address"
-                  required
-                  className={`${sans.className} w-full px-4 py-3 border border-[#E5E3DE] bg-transparent outline-none focus:border-[#C5A059] transition-colors text-sm`}
-                />
-              </div>
-
-              <AnimatePresence>
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className={`${sans.className} text-sm text-red-600 text-center`}
-                  >
-                    {error}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-
-              <button
-                type="submit"
-                className={`${sans.className} w-full py-4 bg-[#1A1A1A] text-[#F0EFEA] text-sm tracking-[0.15em] uppercase hover:bg-[#C5A059] transition-colors`}
-              >
-                Send Magic Link
-              </button>
-              
-              <p className={`${sans.className} text-xs text-[#999] text-center mt-4`}>
-                A secure sign-in link will be sent to your email
-              </p>
-            </form>
-          )}
+              {loading ? "Signing In..." : "Enter Vault"}
+            </button>
+            
+            <p className={`${sans.className} text-xs text-[#999] text-center mt-4`}>
+              Secure admin access • No email quota limits
+            </p>
+          </form>
         </motion.div>
       </div>
     );

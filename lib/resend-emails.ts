@@ -194,6 +194,40 @@ export async function sendMembershipApprovalEmail(email: string, name: string) {
   });
 }
 
+export async function sendMembershipApprovalWithSetup(email: string, name: string, setupLink: string) {
+  const content = `
+    <p>Dear ${name},</p>
+    <p><strong>Congratulations!</strong> Your application to join House of Muziris Guild has been approved.</p>
+    
+    <div style="background-color: #F0EFEA; border-left: 4px solid #C5A059; padding: 20px; margin: 30px 0;">
+      <p style="margin: 0 0 10px 0; font-weight: 600; color: #1A1A1A;">🎉 Your Guild Membership Details:</p>
+      <p style="margin: 0; color: #1A1A1A;"><strong>Email:</strong> ${email}</p>
+      <p style="margin: 10px 0 0 0; font-size: 14px; color: #6B6B6B;">You'll use this email to log in to your member portal.</p>
+    </div>
+
+    <p><strong>Next Step: Set Your Password</strong></p>
+    <p>To complete your account setup and access your exclusive member benefits, click the button below to create your password. This link is secure and will expire in 60 minutes.</p>
+    
+    <p style="margin-top: 30px;">As a Guild member, you now have exclusive access to:</p>
+    <ul style="line-height: 2; margin: 20px 0;">
+      <li>Premium spice collections before public release</li>
+      <li>Special member-only pricing on all products</li>
+      <li>Quarterly spice tasting events and workshops</li>
+      <li>Direct sourcing stories from Kerala's finest farms</li>
+      <li>Priority access to limited edition releases</li>
+      <li>Exclusive recipes from renowned chefs</li>
+    </ul>
+  `;
+  
+  const html = getEmailTemplate(content, 'Set Your Password & Enter the Guild', setupLink);
+  
+  return sendEmail({
+    to: email,
+    subject: '🌶️ Welcome to House of Muziris Guild - Set Your Password',
+    html,
+  });
+}
+
 export async function sendMembershipRejectionEmail(email: string, name: string, reason?: string) {
   const content = `
     <p>Dear ${name},</p>

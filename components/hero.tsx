@@ -90,7 +90,7 @@ export function Hero() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.4, delay: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
           style={{ y: imageY }}
-          className="relative w-full aspect-[3/4] lg:aspect-[4/5]"
+          className="relative w-full aspect-3/4 lg:aspect-4/5"
         >
           <div className="absolute inset-6 lg:inset-10">
             <Image
@@ -116,7 +116,7 @@ export function Hero() {
         <motion.div
           animate={{ y: [0, 8, 0] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-          className="w-px h-8 bg-gradient-to-b from-[#C5A059] to-transparent"
+          className="w-px h-8 bg-linear-to-b from-[#C5A059] to-transparent"
         />
       </motion.div>
     </section>
